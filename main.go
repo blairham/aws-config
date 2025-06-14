@@ -6,12 +6,42 @@ import (
 
 	mcli "github.com/mitchellh/cli"
 
-	"github.com/blairham/aws-config/command"
-	"github.com/blairham/aws-config/command/cli"
+	"github.com/blairham/aws-sso-config/command"
+	"github.com/blairham/aws-sso-config/command/cli"
 )
 
+// Version information - set by build flags
+var (
+	version   = "dev"
+	commit    = "unknown"
+	buildTime = "unknown"
+)
+
+// Variables for testing
+var osExit = os.Exit
+
 func main() {
-	os.Exit(Run(os.Args[1:]))
+	osExit(Run(os.Args[1:]))
+}
+
+// For testing purposes
+var createCLI = func(ui *cli.BasicUI, args []string) *mcli.CLI {
+	cmds := command.RegisteredCommands(ui)
+	var names []string
+	for c := range cmds {
+		names = append(names, c)
+	}
+
+	return &mcli.CLI{
+		Name:                       "aws-sso-config",
+		Version:                    fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, buildTime),
+		Args:                       args,
+		Commands:                   cmds,
+		Autocomplete:               true,
+		AutocompleteNoDefaultFlags: true,
+		HelpFunc:                   mcli.FilteredHelpFunc(names, mcli.BasicHelpFunc("aws-sso-config")),
+		HelpWriter:                 os.Stdout,
+	}
 }
 
 func Run(args []string) int {
@@ -23,22 +53,7 @@ func Run(args []string) int {
 		},
 	}
 
-	cmds := command.RegisteredCommands(ui)
-	var names []string
-	for c := range cmds {
-		names = append(names, c)
-	}
-
-	cliInstance := &mcli.CLI{
-		Name: "aws-config",
-		// Version:                    version.GetVersion().FullVersionNumber(true),
-		Args:                       args,
-		Commands:                   cmds,
-		Autocomplete:               true,
-		AutocompleteNoDefaultFlags: true,
-		HelpFunc:                   mcli.FilteredHelpFunc(names, mcli.BasicHelpFunc("aws-config")),
-		HelpWriter:                 os.Stdout,
-	}
+	cliInstance := createCLI(ui, args)
 
 	exitCode, err := cliInstance.Run()
 	if err != nil {

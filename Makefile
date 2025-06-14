@@ -1,5 +1,5 @@
 # Project configuration
-BINARY_NAME=aws-config
+BINARY_NAME=aws-sso-config
 MAIN_PACKAGE=.
 BUILD_DIR=bin
 DIST_DIR=dist
@@ -39,6 +39,11 @@ help:
 clean:
 	@echo "Cleaning build artifacts..."
 	@rm -rf $(BUILD_DIR) $(DIST_DIR) $(COVERAGE_DIR)
+	@rm -f coverage.out profile.out cpu.prof mem.prof block.prof mutex.prof
+	@rm -f *.test *.cover *.log *.tmp
+	@rm -f aws-config.yaml aws-config.json aws-config.toml
+	@find . -name "*.test" -type f -delete 2>/dev/null || true
+	@find . -name "*.prof" -type f -delete 2>/dev/null || true
 	@go clean -cache -testcache -modcache
 	@echo "Clean complete"
 

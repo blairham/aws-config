@@ -2,7 +2,6 @@ package aws
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -56,20 +55,8 @@ func validateAccountID(accountID, rootDir string) error {
 }
 
 func getProfileFromRepoName(repo string) string {
-	var repos = map[string]string{
-		"commerce-prod":             "commerce-prd",
-		"hospitalitysolutions-prod": "hospitalitysolutions-prd",
-		"mlplat-prd":                "mlplatprd",
-		"tripadvisor-hotels-ai":     "hotels-ai",
-		"seceng-prod":               "seceng-prd",
-	}
-
-	// A very small number of ancient AWS accounts have repo names
-	// that do not match their account name minus trip-/tripadvisor-
-	// This captures those exceptions, otherwise just returns the value as is
-	if val, ok := repos[repo]; ok {
-		return val
-	}
+	// For most repositories, the profile name matches the repo name
+	// This function can be extended to handle special cases if needed
 	return repo
 }
 
@@ -114,14 +101,16 @@ func GetProfile() (string, error) {
 		}
 		cwd = filepath.Dir(cwd)
 		if cwd == "/" {
-			return "", errors.New("not in a git repository")
+			// If no git repository is found, return the default profile
+			return "default", nil
 		}
 	}
 	repoName := filepath.Base(cwd)
 	profile := getProfileFromRepoName(repoName)
 	err = validateProfile(profile, cwd)
 	if err != nil {
-		return "", err
+		// If there's an error validating the profile (e.g., no remotes), return default
+		return "default", nil
 	}
 	return profile, nil
 }

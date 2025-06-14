@@ -5,11 +5,10 @@ import (
 
 	mcli "github.com/mitchellh/cli"
 
-	"github.com/blairham/aws-config/command/cli"
-	"github.com/blairham/aws-config/command/config"
-	configwrite "github.com/blairham/aws-config/command/config/write"
-	"github.com/blairham/aws-config/command/generate"
-	"github.com/blairham/aws-config/command/run"
+	"github.com/blairham/aws-sso-config/command/cli"
+	"github.com/blairham/aws-sso-config/command/generate"
+	"github.com/blairham/aws-sso-config/command/initialize"
+	"github.com/blairham/aws-sso-config/command/run"
 )
 
 // factory is a function that returns a new instance of a CLI-sub command.
@@ -25,11 +24,8 @@ func RegisteredCommands(ui cli.UI) map[string]mcli.CommandFactory {
 	registry := map[string]mcli.CommandFactory{}
 	registerCommands(ui, registry,
 		// Add new commands here
-		entry{"config", func(ui cli.UI) (cli.Command, error) { return config.New(ui), nil }},
-		// entry{"config list", func(ui cli.UI) (cli.Command, error) { return configlist.New(ui), nil }},
-		// entry{"config read", func(ui cli.UI) (cli.Command, error) { return configread.New(ui), nil }},
-		entry{"config write", func(ui cli.UI) (cli.Command, error) { return configwrite.New(ui), nil }},
 		entry{"generate", func(ui cli.UI) (cli.Command, error) { return generate.New(ui), nil }},
+		entry{"init", func(ui cli.UI) (cli.Command, error) { return initialize.New(ui), nil }},
 		entry{"run", func(ui cli.UI) (cli.Command, error) { return run.New(ui), nil }},
 	)
 

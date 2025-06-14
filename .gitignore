@@ -195,6 +195,7 @@ Temporary Items
 # Project-specific binaries
 bin/
 aws-config
+aws-sso-config
 
 # Additional editor files
 *.swp
@@ -212,6 +213,31 @@ release/
 .env.local
 *.local
 
-# Test coverage files
+# aws-sso-config configuration files (keep examples)
+aws-config.yaml
+aws-config.yml
+aws-config.json
+aws-config.toml
+!aws-config.example.*
+
+# Test coverage files and directories
+# Go coverage tool output
+*.out
 coverage.out
 coverage.html
+coverage/
+coverage*.out
+coverage*.html
+c.out
+profile.out
+
+# Additional coverage formats
+*.cover
+*.coverprofile
+coverage.txt
+coverage.xml
+coverage.json
+
+# Test result files
+test-results/
+test-reports/

@@ -7,14 +7,14 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/sso"
 	"github.com/bigkevmcd/go-configparser"
 	"github.com/mitchellh/cli"
 
-	"github.com/blairham/aws-config/command/flags"
-	"github.com/blairham/aws-config/provider/aws"
+	"github.com/blairham/aws-sso-config/command/flags"
+	appconfig "github.com/blairham/aws-sso-config/pkg/config"
+	"github.com/blairham/aws-sso-config/provider/aws"
 )
 
 type cmd struct {
@@ -22,7 +22,8 @@ type cmd struct {
 	flags *flag.FlagSet
 	help  string
 
-	diff bool
+	diff       bool
+	configFile string
 }
 
 func New(ui cli.Ui) *cmd {
@@ -34,6 +35,7 @@ func New(ui cli.Ui) *cmd {
 func (c *cmd) Init() {
 	c.flags = flag.NewFlagSet("", flag.ContinueOnError)
 	c.flags.BoolVar(&c.diff, "diff", false, "Enable diff output.")
+	c.flags.StringVar(&c.configFile, "config", "", "Path to configuration file.")
 
 	c.help = flags.Usage(help, c.flags)
 }
@@ -43,15 +45,34 @@ func (c *cmd) Run(args []string) int {
 		return 1
 	}
 
-	configFile := aws.ConfigFile()
+	// Load configuration
+	var appCfg *appconfig.Config
+	var err error
+
+	if c.configFile != "" {
+		appCfg, err = appconfig.Load(c.configFile)
+		if err != nil {
+			fmt.Printf("Configuration error: %v\n", err)
+			return 1
+		}
+	} else {
+		appCfg = appconfig.Default()
+	}
+
+	if err := appCfg.Validate(); err != nil {
+		fmt.Printf("Configuration error: %v\n", err)
+		return 1
+	}
+
+	configFile := appCfg.ConfigFile
 
 	cfg := aws.LoadDefaultConfig()
-	token := aws.GetToken(cfg)
+	token := aws.GenerateTokenWithConfig(cfg, appCfg)
 
 	// create sso client
 	ssoClient := sso.NewFromConfig(cfg)
 
-	if generateAwsConfigFile(ssoClient, token, configFile, c.diff) != nil {
+	if generateAwsConfigFile(ssoClient, token, configFile, c.diff, appCfg) != nil {
 		return 1
 	}
 
@@ -80,7 +101,7 @@ func showFileDiff(file1, file2 string) {
 	cmd.Run() // Ignore error as diff returns non-zero when files differ
 }
 
-func generateAwsConfigFile(ssoClient *sso.Client, token *string, configFile string, diff bool) error {
+func generateAwsConfigFile(ssoClient *sso.Client, token *string, configFile string, diff bool, appCfg *appconfig.Config) error {
 	configFileNew := configFile + ".new"
 
 	awsConfig, err := configparser.NewConfigParserFromFile(configFile)
@@ -100,27 +121,25 @@ func generateAwsConfigFile(ssoClient *sso.Client, token *string, configFile stri
 		}
 
 		for _, y := range x.AccountList {
-			// only add accounts that we care about
+			// Add all accounts - users can configure filtering if needed
 			accountName := aws.ToString(y.AccountName)
-			if !strings.HasPrefix(accountName, "tripadvisor-") && !strings.HasPrefix(accountName, "trip-") && !strings.HasPrefix(accountName, "core-") {
-				continue
-			}
 
-			trimmedAccountName := strings.TrimPrefix(accountName, "trip-")
-			trimmedAccountName = strings.TrimPrefix(trimmedAccountName, "tripadvisor-")
-			section := "profile " + trimmedAccountName
+			// Use the account name as-is for the profile name
+			// Users can customize this logic based on their naming conventions
+			profileName := accountName
+			section := "profile " + profileName
 
 			// check if profile already exists and update it
 			if !awsConfig.HasSection(section) {
-				fmt.Printf("Adding profile %v\n", trimmedAccountName)
+				fmt.Printf("Adding profile %v\n", profileName)
 				awsConfig.AddSection(section)
 			}
 
 			awsConfig.Set(section, "sso_account_id", aws.ToString(y.AccountId))
-			awsConfig.Set(section, "sso_role_name", "AdministratorAccess")
-			awsConfig.Set(section, "sso_region", "us-east-1")
-			awsConfig.Set(section, "sso_start_url", "https://tamg.awsapps.com/start")
-			awsConfig.Set(section, "region", "us-east-1")
+			awsConfig.Set(section, "sso_role_name", appCfg.SSORole)
+			awsConfig.Set(section, "sso_region", appCfg.SSORegion)
+			awsConfig.Set(section, "sso_start_url", appCfg.SSOStartURL)
+			awsConfig.Set(section, "region", appCfg.DefaultRegion)
 		}
 	}
 	err = awsConfig.SaveWithDelimiter(configFileNew, "=")

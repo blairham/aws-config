@@ -16,6 +16,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssooidc"
 	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/browser"
+
+	appconfig "github.com/blairham/aws-sso-config/pkg/config"
 )
 
 type SSOCacheEntry struct {
@@ -68,7 +70,7 @@ func generateToken(cfg aws.Config) *string {
 	deviceAuth, err := ssooidcClient.StartDeviceAuthorization(context.TODO(), &ssooidc.StartDeviceAuthorizationInput{
 		ClientId:     register.ClientId,
 		ClientSecret: register.ClientSecret,
-		StartUrl:     aws.String("https://tamg.awsapps.com/start"),
+		StartUrl:     aws.String("https://your-sso-portal.awsapps.com/start"), // Replace with your SSO URL
 	})
 	if err != nil {
 		fmt.Printf("Failed to start device authorization: %v\n", err)
@@ -85,46 +87,7 @@ func generateToken(cfg aws.Config) *string {
 
 	fmt.Println("Waiting for authorization... (this may take a few moments)")
 
-	// Poll for token creation with exponential backoff
-	var token *ssooidc.CreateTokenOutput
-	maxAttempts := 30 // About 5 minutes total
-	interval := time.Second * 5
-
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		token, err = ssooidcClient.CreateToken(context.TODO(), &ssooidc.CreateTokenInput{
-			ClientId:     register.ClientId,
-			ClientSecret: register.ClientSecret,
-			DeviceCode:   deviceAuth.DeviceCode,
-			GrantType:    aws.String("urn:ietf:params:oauth:grant-type:device_code"),
-		})
-
-		if err == nil {
-			fmt.Println("✓ Authorization successful!")
-			break
-		}
-
-		// Check if this is an authorization pending error (expected while waiting)
-		if strings.Contains(err.Error(), "authorization_pending") || strings.Contains(err.Error(), "slow_down") {
-			if attempt%6 == 0 { // Print status every 30 seconds
-				fmt.Printf("Still waiting for authorization... (attempt %d/%d)\n", attempt, maxAttempts)
-			}
-			time.Sleep(interval)
-			continue
-		}
-
-		// For other errors, break immediately
-		fmt.Printf("Authorization error: %v\n", err)
-		break
-	}
-
-	if err != nil {
-		if strings.Contains(err.Error(), "authorization_pending") {
-			fmt.Println("Authorization timeout. Please try again.")
-		}
-		return nil
-	}
-
-	return token.AccessToken
+	return pollForToken(ssooidcClient, register, deviceAuth)
 }
 
 func getCurrentToken() *string {
@@ -178,4 +141,87 @@ func GetToken(cfg aws.Config) *string {
 	}
 
 	return generateToken(cfg)
+}
+
+func pollForToken(ssooidcClient *ssooidc.Client, register *ssooidc.RegisterClientOutput, deviceAuth *ssooidc.StartDeviceAuthorizationOutput) *string {
+	// Poll for token creation with exponential backoff
+	var token *ssooidc.CreateTokenOutput
+	var err error
+	maxAttempts := 30 // About 5 minutes total
+	interval := time.Second * 5
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		token, err = ssooidcClient.CreateToken(context.TODO(), &ssooidc.CreateTokenInput{
+			ClientId:     register.ClientId,
+			ClientSecret: register.ClientSecret,
+			DeviceCode:   deviceAuth.DeviceCode,
+			GrantType:    aws.String("urn:ietf:params:oauth:grant-type:device_code"),
+		})
+
+		if err == nil {
+			fmt.Println("✓ Authorization successful!")
+			break
+		}
+
+		// Check if this is an authorization pending error (expected while waiting)
+		if strings.Contains(err.Error(), "authorization_pending") || strings.Contains(err.Error(), "slow_down") {
+			if attempt%6 == 0 { // Print status every 30 seconds
+				fmt.Printf("Still waiting for authorization... (attempt %d/%d)\n", attempt, maxAttempts)
+			}
+			time.Sleep(interval)
+			continue
+		}
+
+		// For other errors, break immediately
+		fmt.Printf("Authorization error: %v\n", err)
+		break
+	}
+
+	if err != nil {
+		if strings.Contains(err.Error(), "authorization_pending") {
+			fmt.Println("Authorization timeout. Please try again.")
+		}
+		return nil
+	}
+
+	return token.AccessToken
+}
+
+func GenerateTokenWithConfig(cfg aws.Config, appCfg *appconfig.Config) *string {
+	// create sso oidc client to trigger login flow
+	ssooidcClient := ssooidc.NewFromConfig(cfg)
+
+	// register your client which is triggering the login flow
+	register, err := ssooidcClient.RegisterClient(context.TODO(), &ssooidc.RegisterClientInput{
+		ClientName: aws.String("aws-sso-config-cli"),
+		ClientType: aws.String("public"),
+		Scopes:     []string{"sso-portal:*"},
+	})
+	if err != nil {
+		fmt.Printf("Failed to register client: %v\n", err)
+		return nil
+	}
+
+	// authorize your device using the client registration response
+	deviceAuth, err := ssooidcClient.StartDeviceAuthorization(context.TODO(), &ssooidc.StartDeviceAuthorizationInput{
+		ClientId:     register.ClientId,
+		ClientSecret: register.ClientSecret,
+		StartUrl:     aws.String(appCfg.SSOStartURL),
+	})
+	if err != nil {
+		fmt.Printf("Failed to start device authorization: %v\n", err)
+		return nil
+	}
+
+	// trigger OIDC login. open browser to login and wait for authorization
+	url := aws.ToString(deviceAuth.VerificationUriComplete)
+	fmt.Printf("Opening browser for AWS SSO login...\n%v\n", url)
+	err = browser.OpenURL(url)
+	if err != nil {
+		fmt.Printf("Failed to open browser automatically. Please manually open: %v\n", url)
+	}
+
+	fmt.Println("Waiting for authorization... (this may take a few moments)")
+
+	return pollForToken(ssooidcClient, register, deviceAuth)
 }

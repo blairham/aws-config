@@ -1,0 +1,25 @@
+# AWS Config Tool Configuration Example
+# Copy this file to aws-sso-config.yaml and customize for your environment
+# This file supports YAML, TOML, and JSON formats
+
+# SSO Configuration - Update these for your organization
+sso_start_url: "https://your-sso-portal.awsapps.com/start"
+sso_region: "us-east-1"
+sso_role: "AdministratorAccess"
+
+# AWS Configuration
+default_region: "us-east-1"
+config_file: "~/.aws/config"
+
+# Behavior Settings
+backup_configs: true
+dry_run: false
+
+# Environment variables can also be used with AWS_CONFIG_ prefix:
+# AWS_CONFIG_SSO_START_URL=https://your-sso-portal.awsapps.com/start
+# AWS_CONFIG_SSO_REGION=us-east-1
+# AWS_CONFIG_SSO_ROLE=AdministratorAccess
+# AWS_CONFIG_DEFAULT_REGION=us-east-1
+# AWS_CONFIG_CONFIG_FILE=~/.aws/config
+# AWS_CONFIG_BACKUP_CONFIGS=true
+# AWS_CONFIG_DRY_RUN=false

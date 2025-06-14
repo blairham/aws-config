@@ -2,7 +2,7 @@
 version: 2
 
 # Project metadata
-project_name: aws-config
+project_name: aws-sso-config
 
 before:
   hooks:
@@ -10,9 +10,9 @@ before:
   - go generate ./...
 
 builds:
-- id: "aws-config"
+- id: "aws-sso-config"
   main: .
-  binary: aws-config
+  binary: aws-sso-config
   env:
   - CGO_ENABLED=0
   goos:
@@ -94,13 +94,11 @@ release:
 #     install: |
 #       bin.install "aws-config"
 
-# Docker images (optional - uncomment and configure if desired)
-# dockers:
-#   - image_templates:
-#       - "ghcr.io/blairham/aws-config:{{ .Version }}"
-#       - "ghcr.io/blairham/aws-config:latest"
-#     dockerfile: Dockerfile
-#     build_contexts:
-#       app: "."
-#     extra_files:
-#       - "README.md"
+# Docker images
+dockers:
+- image_templates:
+  - "ghcr.io/blairham/aws-sso-config:{{ .Version }}"
+  - "ghcr.io/blairham/aws-sso-config:latest"
+  dockerfile: Dockerfile
+  extra_files:
+  - "README.md"

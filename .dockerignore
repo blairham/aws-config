@@ -1,0 +1,44 @@
+# Docker ignore file for aws-sso-config
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+CONTRIBUTING.md
+CHANGELOG.md
+SECURITY.md
+LICENSE
+
+# CI/CD
+.github/
+.pre-commit-config.yaml
+
+# Build artifacts
+bin/
+dist/
+coverage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local config
+.env
+.env.local
+*.local
+
+# Test files
+*_test.go
+test/
+
+# GoReleaser
+.goreleaser.yaml

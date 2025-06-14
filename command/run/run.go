@@ -7,8 +7,8 @@ import (
 
 	"github.com/mitchellh/cli"
 
-	"github.com/blairham/aws-config/command/flags"
-	"github.com/blairham/aws-config/provider/aws"
+	"github.com/blairham/aws-sso-config/command/flags"
+	"github.com/blairham/aws-sso-config/provider/aws"
 )
 
 type cmd struct {
@@ -17,6 +17,12 @@ type cmd struct {
 }
 
 var Logger *log.Logger
+
+// Variables to facilitate testing by allowing us to mock external dependencies
+var (
+	execCommand    = exec.Command
+	getProfileFunc = aws.GetProfile
+)
 
 func New(ui cli.Ui) *cmd {
 	c := &cmd{UI: ui}
@@ -30,7 +36,7 @@ func (c *cmd) Init() {
 }
 
 func (c *cmd) Run(args []string) int {
-	awsProfile, err := aws.GetProfile()
+	awsProfile, err := getProfileFunc()
 	if err != nil {
 		Logger.Fatalf("Could not determine AWS account: %s", err)
 	}
@@ -41,7 +47,7 @@ func (c *cmd) Run(args []string) int {
 		}
 	}
 
-	cmd := exec.Command("aws2-wrap", args...)
+	cmd := execCommand("aws2-wrap", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()

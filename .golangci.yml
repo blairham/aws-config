@@ -74,10 +74,10 @@ linters:
       settings:
         printf:
           funcs:
-          - (github.com/blairham/aws-config/pkg/logutils.Log).Infof
-          - (github.com/blairham/aws-config/pkg/logutils.Log).Warnf
-          - (github.com/blairham/aws-config/pkg/logutils.Log).Errorf
-          - (github.com/blairham/aws-config/pkg/logutils.Log).Fatalf
+          - (github.com/blairham/aws-sso-config/pkg/logutils.Log).Infof
+          - (github.com/blairham/aws-sso-config/pkg/logutils.Log).Warnf
+          - (github.com/blairham/aws-sso-config/pkg/logutils.Log).Errorf
+          - (github.com/blairham/aws-sso-config/pkg/logutils.Log).Fatalf
     misspell:
       locale: US
     nolintlint:
@@ -103,4 +103,4 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-      - github.com/blairham/aws-config
+      - github.com/blairham/aws-sso-config
