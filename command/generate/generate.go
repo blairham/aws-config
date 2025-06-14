@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"slices"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/sso"
@@ -23,8 +22,7 @@ type cmd struct {
 	flags *flag.FlagSet
 	help  string
 
-	diff    bool
-	cleanup bool
+	diff bool
 }
 
 func New(ui cli.Ui) *cmd {
@@ -36,7 +34,6 @@ func New(ui cli.Ui) *cmd {
 func (c *cmd) Init() {
 	c.flags = flag.NewFlagSet("", flag.ContinueOnError)
 	c.flags.BoolVar(&c.diff, "diff", false, "Enable diff output.")
-	c.flags.BoolVar(&c.cleanup, "cleanup", false, "Remove profiles for deleted accounts.")
 
 	c.help = flags.Usage(help, c.flags)
 }
@@ -54,7 +51,7 @@ func (c *cmd) Run(args []string) int {
 	// create sso client
 	ssoClient := sso.NewFromConfig(cfg)
 
-	if generateAwsConfigFile(ssoClient, token, configFile, c.diff, c.cleanup) != nil {
+	if generateAwsConfigFile(ssoClient, token, configFile, c.diff) != nil {
 		return 1
 	}
 
@@ -83,21 +80,7 @@ func showFileDiff(file1, file2 string) {
 	cmd.Run() // Ignore error as diff returns non-zero when files differ
 }
 
-func getDeletedAccounts() []string {
-	// TODO: Implement
-
-	// grep '^account_id' aws/conf/deleted/*.yaml | awk '{print $NF}' | tr "'" '"' | tr '\n' ',' | sed 's/,/, /g'
-	return []string{
-		"682663373751", "214402454761", "888141291843", "645449977376", "238748435140", "838966304137",
-		"470843223423", "488930975526", "873418971637", "871576525389", "315408011559", "542652408899",
-		"500107894351", "372722424469", "482829957692", "913664604572", "308372660733", "575631896363",
-		"587273070693", "646305171068", "916698063943", "094139108652", "880843368113", "609658169657",
-		"652580916927", "305349583326", "055450967330", "041793920579", "768492706723", "593319960666",
-		"986061530938", "662733315436",
-	}
-}
-
-func generateAwsConfigFile(ssoClient *sso.Client, token *string, configFile string, diff, cleanup bool) error {
+func generateAwsConfigFile(ssoClient *sso.Client, token *string, configFile string, diff bool) error {
 	configFileNew := configFile + ".new"
 
 	awsConfig, err := configparser.NewConfigParserFromFile(configFile)
@@ -138,18 +121,6 @@ func generateAwsConfigFile(ssoClient *sso.Client, token *string, configFile stri
 			awsConfig.Set(section, "sso_region", "us-east-1")
 			awsConfig.Set(section, "sso_start_url", "https://tamg.awsapps.com/start")
 			awsConfig.Set(section, "region", "us-east-1")
-		}
-	}
-	if cleanup {
-		deletedAccounts := getDeletedAccounts()
-		for _, section := range awsConfig.Sections() {
-			accountID, err := awsConfig.Get(section, "sso_account_id")
-			if err != nil {
-				continue
-			}
-			if slices.Contains(deletedAccounts, accountID) {
-				awsConfig.RemoveSection(section)
-			}
 		}
 	}
 	err = awsConfig.SaveWithDelimiter(configFileNew, "=")
