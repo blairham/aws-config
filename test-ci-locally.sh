@@ -7,7 +7,7 @@ echo "📦 Step 1: Download dependencies"
 make deps
 
 echo "🧪 Step 2: Run tests and coverage"
-./run-tests.sh && go tool cover -html=coverage.out -o coverage/coverage.html
+make test-coverage
 
 echo "🔨 Step 3: Run security scans"
 echo "Running gosec security scanner..."

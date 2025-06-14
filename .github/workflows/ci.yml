@@ -33,12 +33,12 @@ jobs:
       run: make deps
 
     - name: Run tests
-      run: ./run-tests.sh && go tool cover -html=coverage.out -o coverage/coverage.html
+      run: make test-coverage
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
-        file: ./coverage.out
+        file: ./coverage/coverage.out
         flags: unittests
         name: codecov-umbrella
 
