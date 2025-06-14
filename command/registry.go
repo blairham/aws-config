@@ -3,12 +3,13 @@ package command
 import (
 	"fmt"
 
+	mcli "github.com/mitchellh/cli"
+
 	"github.com/blairham/aws-config/command/cli"
 	"github.com/blairham/aws-config/command/config"
 	configwrite "github.com/blairham/aws-config/command/config/write"
 	"github.com/blairham/aws-config/command/generate"
 	"github.com/blairham/aws-config/command/run"
-	mcli "github.com/mitchellh/cli"
 )
 
 // factory is a function that returns a new instance of a CLI-sub command.

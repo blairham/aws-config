@@ -12,9 +12,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/sso"
 	"github.com/bigkevmcd/go-configparser"
+	"github.com/mitchellh/cli"
+
 	"github.com/blairham/aws-config/command/flags"
 	"github.com/blairham/aws-config/provider/aws"
-	"github.com/mitchellh/cli"
 )
 
 type cmd struct {
@@ -79,14 +80,21 @@ func showFileDiff(file1, file2 string) {
 	}
 	cmd := exec.Command("diff", file1, file2)
 	cmd.Stdout = os.Stdout
-	cmd.Run()
+	cmd.Run() // Ignore error as diff returns non-zero when files differ
 }
 
 func getDeletedAccounts() []string {
 	// TODO: Implement
 
 	// grep '^account_id' aws/conf/deleted/*.yaml | awk '{print $NF}' | tr "'" '"' | tr '\n' ',' | sed 's/,/, /g'
-	return []string{"682663373751", "214402454761", "888141291843", "645449977376", "238748435140", "838966304137", "470843223423", "488930975526", "873418971637", "871576525389", "315408011559", "542652408899", "500107894351", "372722424469", "482829957692", "913664604572", "308372660733", "575631896363", "587273070693", "646305171068", "916698063943", "094139108652", "880843368113", "609658169657", "652580916927", "305349583326", "055450967330", "041793920579", "768492706723", "593319960666", "986061530938", "662733315436"}
+	return []string{
+		"682663373751", "214402454761", "888141291843", "645449977376", "238748435140", "838966304137",
+		"470843223423", "488930975526", "873418971637", "871576525389", "315408011559", "542652408899",
+		"500107894351", "372722424469", "482829957692", "913664604572", "308372660733", "575631896363",
+		"587273070693", "646305171068", "916698063943", "094139108652", "880843368113", "609658169657",
+		"652580916927", "305349583326", "055450967330", "041793920579", "768492706723", "593319960666",
+		"986061530938", "662733315436",
+	}
 }
 
 func generateAwsConfigFile(ssoClient *sso.Client, token *string, configFile string, diff, cleanup bool) error {
@@ -110,11 +118,12 @@ func generateAwsConfigFile(ssoClient *sso.Client, token *string, configFile stri
 
 		for _, y := range x.AccountList {
 			// only add accounts that we care about
-			if !(strings.HasPrefix(aws.ToString(y.AccountName), "tripadvisor-") || strings.HasPrefix(aws.ToString(y.AccountName), "trip-") || strings.HasPrefix(aws.ToString(y.AccountName), "core-")) {
+			accountName := aws.ToString(y.AccountName)
+			if !strings.HasPrefix(accountName, "tripadvisor-") && !strings.HasPrefix(accountName, "trip-") && !strings.HasPrefix(accountName, "core-") {
 				continue
 			}
 
-			trimmedAccountName := strings.TrimPrefix(aws.ToString(y.AccountName), "trip-")
+			trimmedAccountName := strings.TrimPrefix(accountName, "trip-")
 			trimmedAccountName = strings.TrimPrefix(trimmedAccountName, "tripadvisor-")
 			section := "profile " + trimmedAccountName
 
@@ -143,11 +152,17 @@ func generateAwsConfigFile(ssoClient *sso.Client, token *string, configFile stri
 			}
 		}
 	}
-	awsConfig.SaveWithDelimiter(configFileNew, "=")
+	err = awsConfig.SaveWithDelimiter(configFileNew, "=")
+	if err != nil {
+		return fmt.Errorf("failed to save config file: %w", err)
+	}
 	if diff {
 		showFileDiff(configFile, configFileNew)
 	}
-	os.Rename(configFileNew, configFile)
+	err = os.Rename(configFileNew, configFile)
+	if err != nil {
+		return fmt.Errorf("failed to rename config file: %w", err)
+	}
 
 	return nil
 }

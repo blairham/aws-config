@@ -24,7 +24,11 @@ func validateAccountID(accountID, rootDir string) error {
 		return fmt.Errorf("could not find terragrunt.hcl at root of git repo %s", rootDir)
 	}
 
-	defer readFile.Close()
+	defer func() {
+		if closeErr := readFile.Close(); closeErr != nil {
+			fmt.Printf("Warning: failed to close file: %v\n", closeErr)
+		}
+	}()
 	fileScanner := bufio.NewScanner(readFile)
 
 	fileScanner.Split(bufio.ScanLines)

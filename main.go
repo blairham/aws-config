@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	mcli "github.com/mitchellh/cli"
+
 	"github.com/blairham/aws-config/command"
 	"github.com/blairham/aws-config/command/cli"
-	mcli "github.com/mitchellh/cli"
 )
 
 func main() {
@@ -28,7 +29,7 @@ func Run(args []string) int {
 		names = append(names, c)
 	}
 
-	cli := &mcli.CLI{
+	cliInstance := &mcli.CLI{
 		Name: "aws-config",
 		// Version:                    version.GetVersion().FullVersionNumber(true),
 		Args:                       args,
@@ -39,7 +40,7 @@ func Run(args []string) int {
 		HelpWriter:                 os.Stdout,
 	}
 
-	exitCode, err := cli.Run()
+	exitCode, err := cliInstance.Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error executing CLI: %v\n", err)
 		return 1

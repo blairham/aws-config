@@ -1,7 +1,6 @@
 package aws
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -61,7 +60,8 @@ func generateToken(cfg aws.Config) *string {
 		Scopes:     []string{"sso-portal:*"},
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("Failed to register client: %v\n", err)
+		return nil
 	}
 
 	// authorize your device using the client registration response
@@ -71,32 +71,62 @@ func generateToken(cfg aws.Config) *string {
 		StartUrl:     aws.String("https://tamg.awsapps.com/start"),
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("Failed to start device authorization: %v\n", err)
+		return nil
 	}
 
-	// trigger OIDC login. open browser to login. close tab once login is done. press enter to continue
+	// trigger OIDC login. open browser to login and wait for authorization
 	url := aws.ToString(deviceAuth.VerificationUriComplete)
-	fmt.Printf("If browser is not opened automatically, please open link:\n%v\n", url)
+	fmt.Printf("Opening browser for AWS SSO login...\n%v\n", url)
 	err = browser.OpenURL(url)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("Failed to open browser automatically. Please manually open: %v\n", url)
 	}
-	fmt.Println("Press ENTER key once login is done")
-	_ = bufio.NewScanner(os.Stdin).Scan()
 
-	// generate sso token
-	token, err := ssooidcClient.CreateToken(context.TODO(), &ssooidc.CreateTokenInput{
-		ClientId:     register.ClientId,
-		ClientSecret: register.ClientSecret,
-		DeviceCode:   deviceAuth.DeviceCode,
-		GrantType:    aws.String("urn:ietf:params:oauth:grant-type:device_code"),
-	})
+	fmt.Println("Waiting for authorization... (this may take a few moments)")
+
+	// Poll for token creation with exponential backoff
+	var token *ssooidc.CreateTokenOutput
+	maxAttempts := 30 // About 5 minutes total
+	interval := time.Second * 5
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		token, err = ssooidcClient.CreateToken(context.TODO(), &ssooidc.CreateTokenInput{
+			ClientId:     register.ClientId,
+			ClientSecret: register.ClientSecret,
+			DeviceCode:   deviceAuth.DeviceCode,
+			GrantType:    aws.String("urn:ietf:params:oauth:grant-type:device_code"),
+		})
+
+		if err == nil {
+			fmt.Println("✓ Authorization successful!")
+			break
+		}
+
+		// Check if this is an authorization pending error (expected while waiting)
+		if strings.Contains(err.Error(), "authorization_pending") || strings.Contains(err.Error(), "slow_down") {
+			if attempt%6 == 0 { // Print status every 30 seconds
+				fmt.Printf("Still waiting for authorization... (attempt %d/%d)\n", attempt, maxAttempts)
+			}
+			time.Sleep(interval)
+			continue
+		}
+
+		// For other errors, break immediately
+		fmt.Printf("Authorization error: %v\n", err)
+		break
+	}
+
 	if err != nil {
-		fmt.Println(err)
+		if strings.Contains(err.Error(), "authorization_pending") {
+			fmt.Println("Authorization timeout. Please try again.")
+		}
+		return nil
 	}
 
 	return token.AccessToken
 }
+
 func getCurrentToken() *string {
 	// Best effort attempt to get token from sso cache.
 	// If you can't for whatever reason, return nil, and the code will walk the user through generating a token

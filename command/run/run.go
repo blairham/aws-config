@@ -5,9 +5,10 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/mitchellh/cli"
+
 	"github.com/blairham/aws-config/command/flags"
 	"github.com/blairham/aws-config/provider/aws"
-	"github.com/mitchellh/cli"
 )
 
 type cmd struct {
@@ -34,7 +35,10 @@ func (c *cmd) Run(args []string) int {
 		Logger.Fatalf("Could not determine AWS account: %s", err)
 	}
 	if awsProfile != "" {
-		os.Setenv(AwsProfile, awsProfile)
+		err = os.Setenv(AwsProfile, awsProfile)
+		if err != nil {
+			Logger.Fatalf("Could not set environment variable: %s", err)
+		}
 	}
 
 	cmd := exec.Command("aws2-wrap", args...)

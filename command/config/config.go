@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/blairham/aws-config/command/flags"
 	"github.com/mitchellh/cli"
+
+	"github.com/blairham/aws-config/command/flags"
 )
 
 type cmd struct {
